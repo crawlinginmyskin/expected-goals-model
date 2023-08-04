@@ -1,0 +1,4 @@
+train: C:\Users\fziet\OneDrive\Pulpit\szkola\inzynierka\shot_detection\train\images
+val: C:\Users\fziet\OneDrive\Pulpit\szkola\inzynierka\shot_detection\val\images
+nc: 1
+names: ['shot']
