@@ -38,6 +38,7 @@ sequences_false = []
 sequence_labels = []
 
 sciezki = df_labels['path'].tolist()
+sciezki = sciezki
 ile = len(sciezki)
 for i, j in tqdm(enumerate(sciezki), total=ile):
     if i >= ile - 2:
@@ -49,18 +50,21 @@ for i, j in tqdm(enumerate(sciezki), total=ile):
         picture_path = f"{DATASET_PATH}\\{j.replace('.txt', '.jpg')}"
         picture_path1 = f"{DATASET_PATH}\\{sciezki[i + 1].replace('.txt', '.jpg')}"
         picture_path2 = f"{DATASET_PATH}\\{sciezki[i + 2].replace('.txt', '.jpg')}"
-        sequence = np.array([load_and_preprocess_image(picture_path),
-                             load_and_preprocess_image(picture_path1),
-                             load_and_preprocess_image(picture_path2)])
+        sequence = np.array([picture_path,picture_path1,picture_path2])
         if j in shots_files or sciezki[i+1] in shots_files or sciezki[i+2] in shots_files:
             sequences_true.append(sequence)
         else:
             sequences_false.append(sequence)
 
 
-sequences = np.array(sequences_true + sample(sequences_false, len(sequences_true)))
-sequence_labels = np.array([1] * len(sequences_true) + [0] * len(sequences_true))
-print(sequence_labels)
+ile_nie = len(sequences_true)
+sequences = np.array(sequences_true + sample(sequences_false, ile_nie))
+sequences_photos = []
+for sequence in tqdm(sequences):
+    sequences_photos.append([load_and_preprocess_image(path) for path in sequence])
+sequences_photos = np.asarray(sequences_photos)
+sequence_labels = np.array([1] * len(sequences_true) + [0] * ile_nie)
+print(sequences_photos.shape)
 labels_reshaped = to_categorical(sequence_labels)
 # labels_reshaped = np.asarray(sequence_labels).astype('float32').reshape((-1, 1))
 
@@ -89,6 +93,8 @@ model = models.Sequential([
 
     layers.Flatten(),
     layers.Dense(128, activation='relu'),
+    layers.Dense(128, activation='relu'),
+    layers.Dense(128, activation='relu'),
     layers.Dense(64, activation='relu'),
     layers.Dropout(0.5),
     layers.Dense(2, activation='softmax')
@@ -99,7 +105,7 @@ model.compile(optimizer='adam',
               metrics=['accuracy'])
 print('zkompilowano model')
 
-x_train, x_test, y_train, y_test = train_test_split(sequences, labels_reshaped, test_size=0.2)
+x_train, x_test, y_train, y_test = train_test_split(sequences_photos, labels_reshaped, test_size=0.2, random_state=42)
 early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=15, start_from_epoch=100)
 model_checkpoint = tf.keras.callbacks.ModelCheckpoint('checkpoint.hdf5', save_best_only=True)
 
