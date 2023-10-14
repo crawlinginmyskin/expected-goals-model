@@ -1,12 +1,14 @@
 import tensorflow as tf
 import pandas as pd
 from keras import layers, models
+from keras.utils import to_categorical
 import numpy as np
 import os
 from random import sample
 from tqdm import tqdm
 import logging
 from PIL import Image
+from sklearn.model_selection import train_test_split
 
 tf.get_logger().setLevel(logging.ERROR)
 
@@ -57,8 +59,10 @@ for i, j in tqdm(enumerate(sciezki), total=ile):
 
 
 sequences = np.array(sequences_true + sample(sequences_false, len(sequences_true)))
-sequence_labels = [1] * len(sequences_true) + [0] * len(sequences_true)
-labels_reshaped = np.asarray(sequence_labels).astype('float32').reshape((-1, 1))
+sequence_labels = np.array([1] * len(sequences_true) + [0] * len(sequences_true))
+print(sequence_labels)
+labels_reshaped = to_categorical(sequence_labels)
+# labels_reshaped = np.asarray(sequence_labels).astype('float32').reshape((-1, 1))
 
 '''
 sequences_dataset = tf.data.Dataset.from_tensor_slices((sequences, labels_reshaped))
@@ -86,19 +90,21 @@ model = models.Sequential([
     layers.Flatten(),
     layers.Dense(128, activation='relu'),
     layers.Dense(64, activation='relu'),
-    layers.Dropout(0.3),
-    layers.Dense(1, activation='sigmoid')
+    layers.Dropout(0.5),
+    layers.Dense(2, activation='softmax')
 ])
 
-model.compile(optimizer='SGD',
+model.compile(optimizer='adam',
               loss='binary_crossentropy',
               metrics=['accuracy'])
 print('zkompilowano model')
 
+x_train, x_test, y_train, y_test = train_test_split(sequences, labels_reshaped, test_size=0.2)
 early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=15, start_from_epoch=100)
-model_checkpoint = tf.keras.callbacks.ModelCheckpoint('best.hdf5', save_best_only=True)
-model.fit(x=sequences, y=labels_reshaped, epochs=500, batch_size=5, validation_split=0.2,
-          callbacks=[early_stopping, model_checkpoint], shuffle=True)
+model_checkpoint = tf.keras.callbacks.ModelCheckpoint('checkpoint.hdf5', save_best_only=True)
+
+model.fit(x=x_train, y=y_train, epochs=500, batch_size=5, callbacks=[early_stopping, model_checkpoint],
+          validation_data=(x_test, y_test))
 print('wytrenowano model')
 model.save('custom_keras.keras')
 print('zapisano model')
