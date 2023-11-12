@@ -1,4 +1,4 @@
-from keras.layers import TimeDistributed, Flatten, Dense, Conv2D, MaxPool2D, Input, Conv3D, MaxPool3D, Dropout
+from keras.layers import TimeDistributed, Flatten, Dense, Conv2D, MaxPool2D, Input, Conv3D, MaxPool3D, Dropout, LSTM
 from keras import models
 
 height = 240
@@ -54,3 +54,19 @@ def get_3dconv():
     ])
     return model
 
+
+def get_lstm():
+    model = models.Sequential([
+        Input(shape=(frames, height, width, channels)),
+        TimeDistributed(Conv2D(32, (3, 3), padding='same', strides=(2,2), activation='relu')),
+        TimeDistributed(Conv2D(32, (3, 3), padding='same', strides=(2,2), activation='relu')),
+        TimeDistributed(MaxPool2D((2, 2), strides=(2, 2))),
+        TimeDistributed(Conv2D(16, (3, 3), padding='same', strides=(2, 2), activation='relu')),
+        TimeDistributed(Conv2D(16, (3, 3), padding='same', strides=(2, 2), activation='relu')),
+        TimeDistributed(MaxPool2D((2, 2), strides=(2, 2))),
+        TimeDistributed(Flatten()),
+        LSTM(16, return_sequences=False, activation='relu'),
+        Dense(256, activation='relu'),
+        Dense(2, activation='sigmoid')
+    ])
+    return model
