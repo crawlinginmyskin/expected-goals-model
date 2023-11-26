@@ -1,5 +1,7 @@
 from keras.layers import TimeDistributed, Flatten, Dense, Conv2D, MaxPool2D, Input, Conv3D, MaxPool3D, Dropout, LSTM
 from keras import models
+from tensorboard.plugins.hparams import api as hp
+import tensorflow as tf
 
 height = 240
 width = 426
@@ -70,3 +72,5 @@ def get_lstm():
         Dense(2, activation='sigmoid')
     ])
     return model
+
+

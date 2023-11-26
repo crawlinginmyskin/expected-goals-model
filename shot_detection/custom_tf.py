@@ -7,7 +7,8 @@ from random import sample
 from tqdm import tqdm
 from PIL import Image
 from sklearn.model_selection import train_test_split
-from tested_models.tested_models import get_time_distributed2d
+from tested_models.tested_models import get_time_distributed2d, get_lstm, get_3dconv
+import datetime
 
 height = 240
 width = 426
@@ -50,7 +51,7 @@ sequences_false = []
 sequence_labels = []
 
 sciezki = df_labels['path'].tolist()
-#sciezki = sciezki[:500]
+#sciezki = sciezki[:500]  # selecting small batch to overfit
 ile = len(sciezki)
 for i, j in tqdm(enumerate(sciezki), total=ile):
     if i >= ile - 5:
@@ -61,6 +62,7 @@ for i, j in tqdm(enumerate(sciezki), total=ile):
     numer4 = sciezki[i + 3].split('_')[1]
     numer5 = sciezki[i + 4].split('_')[1]
     if numer1 == numer2 == numer3 == numer4 == numer5:
+        # this could be somehow parametrized
         frame1 = j.replace('.txt', '.jpg')
         frame2 = sciezki[i + 1].replace('.txt', '.jpg')
         frame3 = sciezki[i + 2].replace('.txt', '.jpg')
@@ -74,7 +76,7 @@ for i, j in tqdm(enumerate(sciezki), total=ile):
 
         sequence = [picture_path, picture_path1, picture_path2, picture_path3, picture_path4]
         suma = 0
-        for m in range(0,5):
+        for m in range(0, 5):  # if 2 out of 5 frames are a shot, we label the sequence as a shot
             if sciezki[i+m] in shots_files:
                 suma += 1
         if suma >= 2:
@@ -82,57 +84,39 @@ for i, j in tqdm(enumerate(sciezki), total=ile):
         else:
             sequences_false.append(sequence)
 
-        '''
-        if j in shots_files or sciezki[i+1] in shots_files or sciezki[i+2] in shots_files:
-            sequences_true.append(sequence)
-        else:
-            sequences_false.append(sequence)
-        '''
 hard_negatives = os.listdir(HARD_NEGATIVES_PATH)
 ile_nie = len(sequences_true)
-print(ile_nie)
 sequences_hard_negatives = []
 already_picked = []
 
-print('przygotowywanie hard negatives')
+print("preparing hard negatives: ")
 for i in tqdm(range(ile_nie)):
     temp_sequence = sample(hard_negatives, frames)
     sequences_hard_negatives.append([fr'{HARD_NEGATIVES_PATH}\{photo}' for photo in temp_sequence])
 
 sequences = np.array(sequences_true + sample(sequences_false, ile_nie) + sequences_hard_negatives)
 sequences_photos = []
+print("loading and processing images: ")
 for sequence in tqdm(sequences):
     sequences_photos.append([load_and_preprocess_image(path) for path in sequence])
 sequences_photos = np.asarray(sequences_photos)
 sequence_labels = np.array([1] * len(sequences_true) + [0] * ile_nie + [0] * ile_nie)
-print(sequences_photos.shape)
 labels_reshaped = to_categorical(sequence_labels)
-# labels_reshaped = np.asarray(sequence_labels).astype('float32').reshape((-1, 1))
 
-'''
-sequences_dataset = tf.data.Dataset.from_tensor_slices((sequences, labels_reshaped))
-
-sequences_dataset = sequences_dataset.shuffle(buffer_size=len(sequences))
-
-train_size = int(0.8 * len(sequences))
-train_dataset = sequences_dataset.take(train_size)
-val_dataset = sequences_dataset.skip(train_size)
-'''
 model = get_time_distributed2d()
 
 model.compile(optimizer='adam',
               loss='binary_crossentropy',
               metrics=['accuracy'])
-print('zkompilowano model')
+print('model was compiled')
 
 x_train, x_test, y_train, y_test = train_test_split(sequences_photos, labels_reshaped, test_size=0.2, random_state=42)
-# Define a dataset from your training data
 
 train_gen = DataGenerator(x_train, y_train, 3)
 test_gen = DataGenerator(x_test, y_test, 3)
-model_checkpoint = tf.keras.callbacks.ModelCheckpoint('checkpoint.hdf5', save_best_only=True)
-
+model_checkpoint = tf.keras.callbacks.ModelCheckpoint('model_checkpoints/time_distributed_2d_2023-01-11.hdf5', save_best_only=True)
+log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 model.fit(train_gen, epochs=50, callbacks=[model_checkpoint], validation_data=test_gen)
 print('wytrenowano model')
-model.save('custom_keras.keras')
-print('zapisano model')
+
